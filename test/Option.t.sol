@@ -4,7 +4,8 @@ pragma solidity ^0.8.13;
 import {Test, console} from "forge-std/Test.sol";
 import {Option} from "../src/callOption.sol";
 import {OptionFactory} from "../src/factory.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {USDTToken} from "../src/USDT.sol";
+import "lib/openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 
 
 contract OptionTest is Test {
@@ -12,65 +13,80 @@ contract OptionTest is Test {
     address admin = makeAddr("myadmin");
     address player1 = makeAddr("player1");
     address player2 = makeAddr("player2");
-    address public USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
+    address option;
 
     OptionFactory factory;
-    address option;
+    USDTToken usd;
+    Option op;
     
     function setUp() public {
         vm.startPrank(admin);
         factory = new OptionFactory();
+        usd = new USDTToken();
+        op = new Option();
+        console.log("usdt address:", address(usd));
         deal(admin, 100000 ether);
         deal(player1, 100000 ether);
         deal(player2, 100000 ether);
-        deal(address(USDT), admin, 1 ether); 
-        deal(address(USDT), player1, 1 ether); 
-        deal(address(USDT), player2, 1 ether); 
+        usd.mintTo(admin, 100000);
+        usd.mintTo(player1, 100000);
+        usd.mintTo(player2, 100000);
+        factory.setTemplete(address(op));
         vm.stopPrank();
     }
 
     function test_useOption() public {
-        deployOption1();
+        deployOption1(0.1 ether, 3000, 100, block.timestamp, block.timestamp + 600, player1);
         vm.startPrank(player2);
-        Option(option).buyOption(50);
-        ERC20(USDT).approve(option, 20 * 3000);
+        (bool sent, bytes memory data) = option.call{value: 5 ether}(
+            abi.encodeWithSignature("buyOption(uint256)", 50)
+        );
+        usd.approve(option, 20 * 3000);
         console.log("before exercise",player2.balance);
-        Option(option).exerciseOption(20);
+        Option(option).exerciseOption(20, address(usd));
         console.log("after exercise", player2.balance);
         vm.stopPrank();
 
         vm.startPrank(player1);
-        Option(option).withdrawProfit(player1);
-        console.log("usdt get:",  ERC20(USDT).balanceOf(player1));
+        Option(option).withdrawProfit(player1, address(usd));
+        console.log("usdt get:",  usd.balanceOf(player1));
         vm.stopPrank();
-
-
     }
 
     function test_burnExpiredOptions() public {
+        deployOption2(0.1 ether, 3000, 100, block.timestamp, block.timestamp - 1, player1);
         vm.startPrank(player1);
-        deployOption2();
         console.log("before burn", player2.balance);
         Option(option).burnExpiredOptions();
         console.log("after burn", player2.balance);
         vm.stopPrank();
-
     }
 
-    function deployOption1() public {
+    function deployOption1(uint256 _optionPrice, uint256 _exercisePrice, uint256 _optionAmount, uint256 _exerciseDateStart, uint256 _exerciseDateEnd, address _admin) public {
         vm.startPrank(player1);
-        option = factory.deployOption();
-        bytes memory callData = abi.encodeWithSignature("init(uint256, uint256, uint256, uint256, uint256)", 0.1 ether,  3000, 100, block.timestamp, block.timestamp + 60000);
-        (bool sent, bytes memory data) = option.call{value: 100 ether}(callData);
+        (bool sent, bytes memory data) = address(factory).call{value: 100 ether}(
+            abi.encodeWithSignature("deployOption(uint256,uint256,uint256,uint256,uint256,address)", _optionPrice,  _exercisePrice, _optionAmount, _exerciseDateStart, _exerciseDateEnd, _admin)
+        );
+        address optionAddr;
+        assembly {
+            optionAddr := mload(add(data, 32))
+        }
+        option = optionAddr;
         vm.stopPrank();
     }
 
     
-    function deployOption2() public {
+    function deployOption2(uint256 _optionPrice, uint256 _exercisePrice, uint256 _optionAmount, uint256 _exerciseDateStart, uint256 _exerciseDateEnd, address _admin) public {
         vm.startPrank(player1);
-        option = factory.deployOption();
-        bytes memory callData = abi.encodeWithSignature("init(uint256, uint256, uint256, uint256, uint256)", 0.1 ether,  3000, 100, block.timestamp, block.timestamp);
-        (bool sent, bytes memory data) = option.call{value: 100 ether}(callData);
+        (bool sent, bytes memory data) = address(factory).call{value: 100 ether}(
+            abi.encodeWithSignature("deployOption(uint256,uint256,uint256,uint256,uint256,address)", _optionPrice,  _exercisePrice, _optionAmount, _exerciseDateStart, _exerciseDateEnd, _admin)
+        );
+        address optionAddr;
+        assembly {
+            optionAddr := mload(add(data, 32))
+        }
+        option = optionAddr;
+        console.log("option address:", option);
         vm.stopPrank();
     }
 

@@ -17,10 +17,9 @@ contract Option is OwnableUpgradeable, ERC20Upgradeable {
     uint256 private amount;
     uint256 private optionAmount;
     uint256 private numberSold;
-    address public USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 
     error NotOwner(address user);
-    error HaveSoldOut();
+    error AmountOverLimit();
     error InsufficientPayment();
     error WrongDate();
     error transferFailed();
@@ -31,31 +30,33 @@ contract Option is OwnableUpgradeable, ERC20Upgradeable {
     } 
 
     modifier underLimit(uint256 buyAmount){
-        if(numberSold + buyAmount > optionAmount) revert HaveSoldOut();
+        if(numberSold + buyAmount > optionAmount) revert AmountOverLimit();
         _;
     }
 
-    function init (uint256 _optionPrice, uint256 _exercisePrice, uint256 _optionAmount, uint256 _exerciseDateStart, uint256 _exerciseDateEnd) payable public initializer{
-       require(msg.value > (_optionAmount * 1 ether), "Need to lock up the ETH assets");
-        __ERC20_init("option", "option");
+    function init (uint256 _optionPrice, uint256 _exercisePrice, uint256 _optionAmount, uint256 _exerciseDateStart, uint256 _exerciseDateEnd, address _admin) payable public initializer{
+       require(msg.value >= _optionAmount * 1 ether, "Need to lock up the ETH assets");
+       __ERC20_init("option", "option");
        optionPrice = _optionPrice;
        exercisePrice = _exercisePrice;
        optionAmount = _optionAmount;
        exerciseDateStart = _exerciseDateStart;
        exerciseDateEnd = _exerciseDateEnd;
+       admin = _admin;
     }
 
-    function buyOption(uint buyAmount) payable public underLimit(buyAmount){
+    function buyOption(uint256 buyAmount) payable public underLimit(buyAmount){
         if(msg.value < buyAmount * optionPrice) revert InsufficientPayment();
         _mint(msg.sender, buyAmount);
         numberSold += buyAmount;
     }
 
-    function exerciseOption(uint opAmount) public {
+    function exerciseOption(uint256 opAmount, address USDTAddress) public {
         if(block.timestamp < exerciseDateStart) revert WrongDate();
         if(block.timestamp > exerciseDateEnd) revert WrongDate();
         uint256 value = opAmount * exercisePrice;
-        IERC20(USDT).transferFrom(msg.sender, address(this), value);
+        (bool success) = IERC20(USDTAddress).transferFrom(msg.sender, address(this), value);
+        if(!success) revert transferFailed();
         _burn(msg.sender, opAmount);
         (bool sent, bytes memory data) = msg.sender.call{value: (opAmount * 1 ether) }("");
         if(!sent) revert transferFailed();
@@ -68,10 +69,8 @@ contract Option is OwnableUpgradeable, ERC20Upgradeable {
         if(!sent) revert transferFailed();
     }
 
-    function withdrawProfit(address usdtReceive) public onlyAdmin{
-        uint256 value = IERC20(USDT).balanceOf(address(this));
-        IERC20(USDT).transfer(usdtReceive, value);
+    function withdrawProfit(address usdtReceive, address USDTAddress) public onlyAdmin{
+        uint256 value = IERC20(USDTAddress).balanceOf(address(this));
+        IERC20(USDTAddress).transfer(usdtReceive, value);
     } 
-
-
 }
