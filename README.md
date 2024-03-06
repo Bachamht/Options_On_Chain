@@ -1,66 +1,13 @@
-## Foundry
+##  Options on Chain
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
 
-Foundry consists of:
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+#### Intro
 
-## Documentation
+This project uses ERC20 tokens as the basis for designing on-chain options. Each option is an ERC20 token and is priced in eth.
+Currently the only option type is ETH call option, players can choose to design their own options (set the strike price, strike time, etc.) and deploy the smart contract. Players can also purchase options issued by others and make their own decisions based on market conditions.
 
-https://book.getfoundry.sh/
+🛫️ 🛫️ 🛫️
 
-## Usage
 
-### Build
 
-```shell
-$ forge build
-```
-
-### Test
-
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
